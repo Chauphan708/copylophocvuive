@@ -1,18 +1,23 @@
+// Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
-// TODO: Dán firebaseConfig của bạn từ Bước 1 vào đây
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// DÁN ĐỐI TƯỢNG firebaseConfig CỦA BẠN VÀO ĐÂY
 const firebaseConfig = {
-  apiKey: "AIzaSyDpsrsWGrZGzqQR592Bf3nBrSMBrW_Wpkk",
-  authDomain: "lop-hoc-vui-ve.firebaseapp.com",
-  projectId: "lop-hoc-vui-ve",
-  storageBucket: "lop-hoc-vui-ve.firebasestorage.app",
-  messagingSenderId: "673452796465",
-  appId: "1:673452796465:web:69e68b4665669cc0f7c310"
+  apiKey: "AIzaSy...",
+  authDomain: "your-project-id.firebaseapp.com",
+  projectId: "your-project-id",
+  storageBucket: "your-project-id.appspot.com",
+  messagingSenderId: "...",
+  appId: "1:..."
 };
 
-// Khởi tạo Firebase
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Khởi tạo Cloud Firestore và export nó để sử dụng trong ứng dụng
+// Initialize Cloud Firestore and get a reference to the service
 export const db = getFirestore(app);
