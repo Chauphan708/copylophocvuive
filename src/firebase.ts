@@ -8,14 +8,13 @@ import { getFirestore } from "firebase/firestore";
 // Your web app's Firebase configuration
 // DÁN ĐỐI TƯỢNG firebaseConfig CỦA BẠN VÀO ĐÂY
 const firebaseConfig = {
-  apiKey: "AIzaSy...",
-  authDomain: "your-project-id.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project-id.appspot.com",
-  messagingSenderId: "...",
-  appId: "1:..."
+  apiKey: "AIzaSyD9hLoGagqOth6SC2eTXN1unqTS7S-MWgU",
+  authDomain: "lop-hoc-vui-ve-2.firebaseapp.com",
+  projectId: "lop-hoc-vui-ve-2",
+  storageBucket: "lop-hoc-vui-ve-2.firebasestorage.app",
+  messagingSenderId: "450616433377",
+  appId: "1:450616433377:web:585573ed0e49171301f5a0"
 };
-
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
