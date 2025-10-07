@@ -200,10 +200,45 @@ const App: React.FC = () => {
         }
     }, [teams, history, updateYearData]);
     
-    const handleBatchUpdateScore = (studentIds: number[], points: number, reason: string) => {
-        studentIds.forEach(id => handleUpdateScore(id, points, reason));
-        showToast(`Đã ghi nhận "${reason}" cho ${studentIds.length} học sinh.`);
-    };
+    const handleBatchUpdateScore = async (studentIds: number[], points: number, reason: string) => {
+    // Nếu không có học sinh nào được chọn thì không làm gì cả
+    if (studentIds.length === 0) return;
+
+    // Dùng Set để kiểm tra ID học sinh nhanh hơn
+    const studentIdSet = new Set(studentIds);
+    const newHistoryEntries: HistoryEntry[] = [];
+
+    // 1. Tính toán điểm mới cho tất cả học sinh trong một lần duyệt
+    const newTeams = teams.map(team => ({
+        ...team,
+        students: team.students.map(student => {
+            // Nếu ID của học sinh này nằm trong danh sách được chọn
+            if (studentIdSet.has(student.id)) {
+                // Tạo một bản ghi lịch sử cho học sinh này
+                newHistoryEntries.push({
+                    id: `${Date.now()}-${student.id}`,
+                    timestamp: Date.now(),
+                    studentName: student.name,
+                    teamName: team.name,
+                    points,
+                    reason,
+                });
+                // Trả về thông tin học sinh với điểm đã được cập nhật
+                return { ...student, score: student.score + points };
+            }
+            // Nếu không thì giữ nguyên thông tin học sinh
+            return student;
+        }),
+    }));
+
+    // 2. Cập nhật state và ghi lên Firestore MỘT LẦN DUY NHẤT
+    // Đảo ngược các bản ghi mới để giữ đúng thứ tự thời gian khi thêm vào đầu mảng
+    const newHistory = [...newHistoryEntries.reverse(), ...history];
+    await updateYearData({ teams: newTeams, history: newHistory });
+
+    // Hiển thị thông báo thành công
+    showToast(`Đã ghi nhận "${reason}" cho ${studentIds.length} học sinh.`);
+};
 
     const handleBulkAddStudent = async (names: string[], teamId: number) => {
         const newStudents: Student[] = names.map(name => ({
