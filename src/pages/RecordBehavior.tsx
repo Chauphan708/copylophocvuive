@@ -135,7 +135,7 @@ const RecordBehavior: React.FC<RecordBehaviorProps> = ({ teams, behaviors, onBat
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 -mt-6 pt-6">
                 <div className="bg-white rounded-xl shadow-lg p-6 border-t-4 border-slate-500 xl:col-span-1">
                     <h3 className="text-2xl font-bold mb-4 text-slate-600">Chọn học sinh</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {teams.map(team => {
                             const teamStudentIds = team.students.map(s => s.id);
                             const selectedInTeamCount = teamStudentIds.filter(id => selectedStudentIds.has(id)).length;
