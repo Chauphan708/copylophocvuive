@@ -2,11 +2,13 @@ import React from 'react';
 import { TrophyIcon } from './Icons';
 
 interface HeaderProps {
-    onResetData: () => void; // Vẫn giữ prop này để không bị lỗi ở App.tsx, dù không dùng nữa
+    // Vẫn giữ dòng này để App.tsx truyền vào không bị lỗi (dù mình không dùng)
+    onResetData: () => void; 
     activeSchoolYearName?: string;
 }
 
-const Header: React.FC<HeaderProps> = ({ onResetData, activeSchoolYearName }) => {
+// THAY ĐỔI Ở ĐÂY: Tôi đã xóa "onResetData" ra khỏi dòng bên dưới
+const Header: React.FC<HeaderProps> = ({ activeSchoolYearName }) => {
 
   return (
     <header className="bg-white shadow-md">
@@ -18,8 +20,6 @@ const Header: React.FC<HeaderProps> = ({ onResetData, activeSchoolYearName }) =>
             <p className="text-md sm:text-lg text-slate-500 mt-1">{activeSchoolYearName || 'Bảng Thi Đua Lớp 5A'}</p>
           </div>
         </div>
-        
-        {/* Nút Bắt đầu lại đã bị xóa hoàn toàn khỏi giao diện */}
       </div>
     </header>
   );
