@@ -9,6 +9,8 @@ interface AttendanceProps {
   teams: Team[];
   attendance: Record<string, Record<number, AttendanceStatus>>;
   onSaveAttendance: (dateKey: string, dayAttendance: Map<number, AttendanceStatus>) => void;
+  // THÊM: Hàm này để cộng điểm trực tiếp
+  onBatchUpdateScore: (studentIds: number[], points: number, reason: string) => void;
 }
 
 const pageVariants = {
@@ -41,12 +43,15 @@ const toDateInputValue = (date: Date) => {
     return local.toJSON().slice(0,10);
 };
 
-const Attendance: React.FC<AttendanceProps> = ({ teams, attendance, onSaveAttendance }) => {
+const Attendance: React.FC<AttendanceProps> = ({ teams, attendance, onSaveAttendance, onBatchUpdateScore }) => {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [dayAttendance, setDayAttendance] = useState<Map<number, AttendanceStatus>>(new Map());
 
     const allStudents = useMemo(() => teams.flatMap(t => t.students), [teams]);
     const dateKey = useMemo(() => toDateKey(selectedDate), [selectedDate]);
+
+    // Kiểm tra xem ngày này đã được điểm danh trước đó chưa (để tránh cộng điểm nhiều lần khi mở lại)
+    const isAlreadySaved = useMemo(() => !!attendance[dateKey], [attendance, dateKey]);
 
     useEffect(() => {
         const newDayAttendance = new Map<number, AttendanceStatus>();
@@ -64,7 +69,30 @@ const Attendance: React.FC<AttendanceProps> = ({ teams, attendance, onSaveAttend
     };
     
     const handleSave = () => {
+        // 1. Lưu dữ liệu điểm danh bình thường
         onSaveAttendance(dateKey, dayAttendance);
+
+        // 2. Tự động cộng điểm "Có đi học"
+        // Chỉ cộng nếu ngày này CHƯA từng được lưu trước đó (để tránh spam nút Lưu cộng điểm liên tục)
+        if (!isAlreadySaved) {
+            const presentStudentIds: number[] = [];
+            dayAttendance.forEach((status, studentId) => {
+                if (status === 'present') {
+                    presentStudentIds.push(studentId);
+                }
+            });
+
+            if (presentStudentIds.length > 0) {
+                // Cộng 2 điểm cho những em có mặt
+                onBatchUpdateScore(presentStudentIds, 2, "Có đi học");
+                alert(`Đã lưu điểm danh và cộng 2 điểm cho ${presentStudentIds.length} học sinh có mặt!`);
+            } else {
+                alert("Đã lưu điểm danh (Không có học sinh nào có mặt).");
+            }
+        } else {
+            // Nếu đã lưu rồi thì chỉ cập nhật trạng thái vắng/có mặt mà không cộng điểm lại
+            alert("Đã cập nhật trạng thái điểm danh (Không cộng thêm điểm vì ngày này đã được lưu trước đó).");
+        }
     };
 
     const summary = useMemo(() => {

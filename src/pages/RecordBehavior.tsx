@@ -3,10 +3,14 @@ import { motion } from 'framer-motion';
 import type { Team, Behavior } from '../types';
 import { PlusIcon, MinusIcon, CheckIcon } from '../components/Icons';
 
+type AttendanceStatus = 'present' | 'excused' | 'unexcused';
+
 interface RecordBehaviorProps {
   teams: Team[];
   behaviors: { positive: Behavior[], negative: Behavior[] };
   onBatchUpdateScore: (studentIds: number[], points: number, reason: string) => void;
+  // Nhận thêm danh sách điểm danh
+  attendance?: Record<string, Record<number, AttendanceStatus>>;
 }
 
 const pageVariants = {
@@ -27,17 +31,19 @@ const CustomCheckbox: React.FC<{
     onChange: () => void;
     label: string;
     id: string;
-}> = ({ checked, isIndeterminate = false, onChange, label, id }) => {
+    disabled?: boolean; // Thêm prop disabled
+}> = ({ checked, isIndeterminate = false, onChange, label, id, disabled = false }) => {
     return (
-        <div className="flex items-center">
+        <div className={`flex items-center ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
             <input
                 id={id}
                 type="checkbox"
                 className="sr-only"
                 checked={checked}
-                onChange={onChange}
+                onChange={disabled ? undefined : onChange}
+                disabled={disabled}
             />
-            <label htmlFor={id} className="flex items-center cursor-pointer">
+            <label htmlFor={id} className={`flex items-center ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                 <div
                     className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
                         checked || isIndeterminate
@@ -48,19 +54,49 @@ const CustomCheckbox: React.FC<{
                     {isIndeterminate && !checked && <MinusIcon className="w-4 h-4 text-white" />}
                     {checked && <CheckIcon className="w-5 h-5 text-white" />}
                 </div>
-                <span className="ml-3 text-slate-700 font-semibold">{label}</span>
+                <span className="ml-3 text-slate-700 font-semibold">
+                    {label} {disabled && <span className="text-red-500 text-xs ml-1">(Vắng)</span>}
+                </span>
             </label>
         </div>
     );
 };
 
-const RecordBehavior: React.FC<RecordBehaviorProps> = ({ teams, behaviors, onBatchUpdateScore }) => {
+const RecordBehavior: React.FC<RecordBehaviorProps> = ({ teams, behaviors, onBatchUpdateScore, attendance = {} }) => {
     const [selectedStudentIds, setSelectedStudentIds] = useState<Set<number>>(new Set());
 
-    const allStudentIds = useMemo(() => teams.flatMap(t => t.students.map(s => s.id)), [teams]);
-    const areAllSelected = allStudentIds.length > 0 && selectedStudentIds.size === allStudentIds.length;
+    // 1. Tính toán danh sách học sinh vắng mặt hôm nay
+    const absentStudentIds = useMemo(() => {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = (today.getMonth() + 1).toString().padStart(2, '0');
+        const day = today.getDate().toString().padStart(2, '0');
+        const todayKey = `${year}-${month}-${day}`;
+
+        const todayAttendance = attendance[todayKey];
+        if (!todayAttendance) return new Set<number>(); // Nếu chưa điểm danh hôm nay thì coi như đi học đủ
+
+        const absentIds = new Set<number>();
+        Object.entries(todayAttendance).forEach(([studentIdStr, status]) => {
+            if (status !== 'present') {
+                absentIds.add(Number(studentIdStr));
+            }
+        });
+        return absentIds;
+    }, [attendance]);
+
+    // Lọc danh sách ID có thể chọn (trừ những em vắng mặt)
+    const availableStudentIds = useMemo(() => {
+        return teams.flatMap(t => t.students.map(s => s.id)).filter(id => !absentStudentIds.has(id));
+    }, [teams, absentStudentIds]);
+
+    const areAllSelected = availableStudentIds.length > 0 && 
+                           availableStudentIds.every(id => selectedStudentIds.has(id));
 
     const handleSelectStudent = (id: number) => {
+        // Nếu học sinh vắng mặt thì không cho chọn
+        if (absentStudentIds.has(id)) return;
+
         setSelectedStudentIds(prev => {
             const newSet = new Set(prev);
             if (newSet.has(id)) {
@@ -73,15 +109,20 @@ const RecordBehavior: React.FC<RecordBehaviorProps> = ({ teams, behaviors, onBat
     };
 
     const handleSelectTeam = (teamId: number) => {
-        const teamStudentIds = teams.find(t => t.id === teamId)?.students.map(s => s.id) || [];
-        const areAllInTeamSelected = teamStudentIds.every(id => selectedStudentIds.has(id));
+        const teamStudents = teams.find(t => t.id === teamId)?.students || [];
+        // Chỉ lấy những em đi học trong tổ
+        const availableInTeam = teamStudents.map(s => s.id).filter(id => !absentStudentIds.has(id));
+        
+        if (availableInTeam.length === 0) return; // Nếu cả tổ vắng hết thì thôi
+
+        const areAllAvailableInTeamSelected = availableInTeam.every(id => selectedStudentIds.has(id));
 
         setSelectedStudentIds(prev => {
             const newSet = new Set(prev);
-            if (areAllInTeamSelected) {
-                teamStudentIds.forEach(id => newSet.delete(id));
+            if (areAllAvailableInTeamSelected) {
+                availableInTeam.forEach(id => newSet.delete(id));
             } else {
-                teamStudentIds.forEach(id => newSet.add(id));
+                availableInTeam.forEach(id => newSet.add(id));
             }
             return newSet;
         });
@@ -91,7 +132,8 @@ const RecordBehavior: React.FC<RecordBehaviorProps> = ({ teams, behaviors, onBat
         if (areAllSelected) {
             setSelectedStudentIds(new Set());
         } else {
-            setSelectedStudentIds(new Set(allStudentIds));
+            // Chỉ chọn tất cả những em đi học
+            setSelectedStudentIds(new Set(availableStudentIds));
         }
     };
 
@@ -138,9 +180,13 @@ const RecordBehavior: React.FC<RecordBehaviorProps> = ({ teams, behaviors, onBat
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {teams.map(team => {
                             const teamStudentIds = team.students.map(s => s.id);
-                            const selectedInTeamCount = teamStudentIds.filter(id => selectedStudentIds.has(id)).length;
-                            const isTeamChecked = selectedInTeamCount > 0 && selectedInTeamCount === team.students.length;
-                            const isTeamIndeterminate = selectedInTeamCount > 0 && selectedInTeamCount < team.students.length;
+                            
+                            // Tính toán trạng thái của tổ dựa trên những em ĐI HỌC
+                            const availableInTeam = teamStudentIds.filter(id => !absentStudentIds.has(id));
+                            const selectedInTeamCount = availableInTeam.filter(id => selectedStudentIds.has(id)).length;
+                            
+                            const isTeamChecked = availableInTeam.length > 0 && selectedInTeamCount === availableInTeam.length;
+                            const isTeamIndeterminate = selectedInTeamCount > 0 && selectedInTeamCount < availableInTeam.length;
 
                             return (
                                 <div key={team.id} className="border border-slate-200 rounded-lg p-3 break-inside-avoid">
@@ -152,15 +198,19 @@ const RecordBehavior: React.FC<RecordBehaviorProps> = ({ teams, behaviors, onBat
                                         label={team.name}
                                     />
                                     <div className="pl-9 mt-3 space-y-2">
-                                        {team.students.map(student => (
-                                            <CustomCheckbox
-                                                key={student.id}
-                                                id={`student-${student.id}`}
-                                                checked={selectedStudentIds.has(student.id)}
-                                                onChange={() => handleSelectStudent(student.id)}
-                                                label={student.name}
-                                            />
-                                        ))}
+                                        {team.students.map(student => {
+                                            const isAbsent = absentStudentIds.has(student.id);
+                                            return (
+                                                <CustomCheckbox
+                                                    key={student.id}
+                                                    id={`student-${student.id}`}
+                                                    checked={selectedStudentIds.has(student.id)}
+                                                    onChange={() => handleSelectStudent(student.id)}
+                                                    label={student.name}
+                                                    disabled={isAbsent} // Disable nếu vắng mặt
+                                                />
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             );

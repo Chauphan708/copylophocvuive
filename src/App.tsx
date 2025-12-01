@@ -30,9 +30,6 @@ import SchoolYearManagement from './pages/SchoolYearManagement';
 import AvatarManagement from './pages/AvatarManagement';
 import RandomStudent from './pages/RandomStudent';
 
-// --- PHẦN CÒN LẠI CỦA FILE BẮT ĐẦU TỪ ĐÂY ---
-// const INITIAL_TEAMS: Team[] = [ ... ];
-
 // --- Các giá trị khởi tạo ban đầu (dùng khi tạo năm học mới) ---
 const INITIAL_TEAMS: Team[] = [
   { id: 1, name: 'Tổ 1 - Đoàn Kết', students: [], color: 'bg-sky-500' },
@@ -90,7 +87,6 @@ const App: React.FC = () => {
         const unsubscribe = onSnapshot(metaRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                console.log('Dữ liệu Meta nhận được từ Firebase:', data);
                 setSchoolYears(data.schoolYears || INITIAL_SCHOOL_YEARS);
                 setActiveSchoolYearId(data.activeSchoolYearId || INITIAL_SCHOOL_YEARS[0]?.id || null);
             } else {
@@ -109,7 +105,6 @@ const App: React.FC = () => {
     // 2. Lắng nghe và cập nhật dữ liệu của năm học đang hoạt động
     useEffect(() => {
         if (!activeSchoolYearId) return;
-        console.log('Đang cố gắng lắng nghe dữ liệu cho năm học ID:', activeSchoolYearId);
         setIsLoading(true);
         const yearDataRef = doc(db, 'schoolYears', String(activeSchoolYearId));
         
@@ -148,7 +143,6 @@ const App: React.FC = () => {
     // Hàm tiện ích để cập nhật document của năm học hiện tại
     const updateYearData = useCallback(async (dataToUpdate: object) => {
         if (!activeSchoolYearId) return;
-        console.log('Đang cố gắng lắng nghe dữ liệu cho năm học ID:', activeSchoolYearId);
         const yearDataRef = doc(db, 'schoolYears', String(activeSchoolYearId));
         try {
             await updateDoc(yearDataRef, dataToUpdate);
@@ -336,7 +330,7 @@ const App: React.FC = () => {
     const handleSaveAttendance = async (dateKey: string, dayAttendance: Map<number, AttendanceStatus>) => {
         const newAttendance = { ...attendance, [dateKey]: Object.fromEntries(dayAttendance) };
         await updateYearData({ attendance: newAttendance });
-        showToast(`Đã lưu điểm danh ngày ${dateKey.split('-').reverse().join('/')}.`);
+        // showToast: Logic này đã được xử lý bên trong component Attendance
     };
     
     // --- Các hàm quản lý năm học (cập nhật document 'appData/meta') ---
@@ -391,28 +385,39 @@ const App: React.FC = () => {
     };
 
     const handleResetData = async () => {
-        if (window.confirm('Bạn có chắc chắn muốn bắt đầu lại tuần thi đua không? Tất cả điểm của học sinh sẽ được đặt lại về 0 và lịch sử sẽ bị xoá.')) {
-            const resetTeams = teams.map(team => ({
-                ...team,
-                students: team.students.map(student => ({ ...student, score: 0 })),
-            }));
-            await updateYearData({ teams: resetTeams, history: [] });
-            showToast('Đã bắt đầu lại tuần thi đua mới!');
-        }
+        // Logic xác nhận đã được chuyển vào Header.tsx, ở đây chỉ thực hiện lệnh xóa
+        const resetTeams = teams.map(team => ({
+            ...team,
+            students: team.students.map(student => ({ ...student, score: 0 })),
+        }));
+        await updateYearData({ teams: resetTeams, history: [] });
+        showToast('Đã bắt đầu lại tuần thi đua mới!');
     };
     
     const renderPage = () => {
         if (isLoading) {
             return <div className="text-center p-10">Đang tải dữ liệu từ server...</div>;
         }
-        // ... (phần render page giữ nguyên)
+
         switch (currentPage) {
             case 'dashboard':
                 return <Dashboard teams={teams} history={history} onSelectStudent={handleSelectStudent} />;
             case 'record':
-                return <RecordBehavior teams={teams} behaviors={behaviors} onBatchUpdateScore={handleBatchUpdateScore} />;
+                // QUAN TRỌNG: Truyền attendance vào đây
+                return <RecordBehavior 
+                    teams={teams} 
+                    behaviors={behaviors} 
+                    onBatchUpdateScore={handleBatchUpdateScore}
+                    attendance={attendance} 
+                />;
             case 'attendance':
-                return <Attendance teams={teams} attendance={attendance} onSaveAttendance={handleSaveAttendance} />;
+                // QUAN TRỌNG: Truyền onBatchUpdateScore vào đây
+                return <Attendance 
+                    teams={teams} 
+                    attendance={attendance} 
+                    onSaveAttendance={handleSaveAttendance} 
+                    onBatchUpdateScore={handleBatchUpdateScore}
+                />;
             case 'random':
                 return <RandomStudent teams={teams} />;
             case 'watchlist':
