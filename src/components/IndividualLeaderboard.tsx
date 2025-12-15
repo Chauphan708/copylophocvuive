@@ -1,114 +1,92 @@
 import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import type { Team, HistoryEntry } from '../types';
-import { TrophyIcon } from './Icons';
-import Avatar from './Avatar';
+import { motion, AnimatePresence } from 'framer-motion';
+import { TrophyIcon } from './Icons'; // Đảm bảo bạn có icon này hoặc thay bằng icon khác
 
 interface IndividualLeaderboardProps {
-  teams: Team[];
-  history: HistoryEntry[];
+    teams: Team[];
+    history: HistoryEntry[]; // Có thể dùng để tính xu hướng tăng/giảm nếu cần sau này
 }
 
-type Period = 'total' | 'week' | 'month';
+const IndividualLeaderboard: React.FC<IndividualLeaderboardProps> = ({ teams }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
 
-const getStartDate = (period: Period): Date => {
-    const now = new Date();
-    if (period === 'week') {
-        const day = now.getDay();
-        const diff = now.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
-        const monday = new Date(now.setDate(diff));
-        monday.setHours(0, 0, 0, 0);
-        return monday;
-    }
-    if (period === 'month') {
-        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-        firstDay.setHours(0, 0, 0, 0);
-        return firstDay;
-    }
-    return new Date(0); // For 'total', start from epoch
-};
+    // 1. Lấy tất cả học sinh từ các tổ và gộp thành 1 danh sách duy nhất
+    const allStudents = useMemo(() => {
+        const students = teams.flatMap(team => 
+            team.students.map(s => ({ ...s, teamName: team.name, teamColor: team.color }))
+        );
+        // 2. Sắp xếp theo điểm từ cao xuống thấp
+        return students.sort((a, b) => b.score - a.score);
+    }, [teams]);
 
-const IndividualLeaderboard: React.FC<IndividualLeaderboardProps> = ({ teams, history }) => {
-    const [period, setPeriod] = useState<Period>('total');
+    // 3. Quyết định danh sách hiển thị (10 em hoặc tất cả)
+    const displayedStudents = isExpanded ? allStudents : allStudents.slice(0, 10);
 
-    const rankedStudents = useMemo(() => {
-        const allStudents = teams.flatMap(team => team.students.map(s => ({...s, teamColor: team.color})));
-        
-        if (period === 'total') {
-            return [...allStudents].sort((a, b) => b.score - a.score);
-        }
+    return (
+        <div className="bg-white rounded-xl shadow-lg border-t-4 border-amber-400 overflow-hidden">
+            <div className="p-6 pb-2">
+                <h3 className="text-2xl font-bold text-slate-700 flex items-center gap-2">
+                    <TrophyIcon className="w-8 h-8 text-amber-500" />
+                    Xếp Hạng Cá Nhân
+                </h3>
+                <p className="text-slate-500 text-sm mt-1">
+                    Tổng số: {allStudents.length} học sinh
+                </p>
+            </div>
 
-        const startDate = getStartDate(period);
-        const periodHistory = history.filter(entry => entry.timestamp >= startDate.getTime());
+            <div className="p-4">
+                <div className="space-y-3">
+                    <AnimatePresence initial={false}>
+                        {displayedStudents.map((student, index) => (
+                            <motion.div
+                                key={student.id}
+                                layout
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className={`flex items-center justify-between p-3 rounded-lg border ${
+                                    index < 3 ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-100'
+                                }`}
+                            >
+                                <div className="flex items-center gap-4">
+                                    {/* Huy hiệu thứ hạng */}
+                                    <div className={`w-8 h-8 flex items-center justify-center rounded-full font-bold text-sm ${
+                                        index === 0 ? 'bg-yellow-400 text-white shadow-md' :
+                                        index === 1 ? 'bg-slate-300 text-slate-600' :
+                                        index === 2 ? 'bg-amber-700 text-amber-100' :
+                                        'bg-slate-100 text-slate-500'
+                                    }`}>
+                                        {index + 1}
+                                    </div>
+                                    
+                                    <div>
+                                        <p className="font-bold text-slate-700">{student.name}</p>
+                                        <span className={`text-xs px-2 py-0.5 rounded-full text-white ${student.teamColor}`}>
+                                            {student.teamName}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="font-bold text-xl text-amber-500">
+                                    {student.score}
+                                </div>
+                            </motion.div>
+                        ))}
+                    </AnimatePresence>
+                </div>
 
-        const scores: { [key: string]: number } = {};
-        for (const entry of periodHistory) {
-            scores[entry.studentName] = (scores[entry.studentName] || 0) + entry.points;
-        }
-
-        const studentsWithPeriodScores = allStudents.map(student => ({
-            ...student,
-            periodScore: scores[student.name] || 0,
-        }));
-
-        return studentsWithPeriodScores.sort((a, b) => b.periodScore - a.periodScore);
-
-    }, [teams, history, period]);
-
-
-  return (
-    <div className="bg-white rounded-xl shadow-lg p-6 border-t-4 border-amber-500 h-full flex flex-col">
-      <h3 className="text-2xl font-bold mb-4 text-amber-600">Xếp Hạng Cá Nhân</h3>
-      <div className="flex justify-center bg-slate-100 rounded-lg p-1 mb-4">
-        {(['Tổng', 'Tuần', 'Tháng'] as const).map(p => {
-          const value = p === 'Tổng' ? 'total' : p === 'Tuần' ? 'week' : 'month';
-          return (
-            <button
-              key={value}
-              onClick={() => setPeriod(value)}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors ${
-                period === value ? 'bg-white shadow text-amber-600' : 'text-slate-500 hover:bg-slate-200'
-              }`}
-            >
-              {p}
-            </button>
-          )
-        })}
-      </div>
-      <ul className="space-y-3 overflow-y-auto flex-grow pr-2">
-        <AnimatePresence>
-            {rankedStudents.slice(0, 10).map((student, index) => (
-                 <motion.li
-                    key={student.id}
-                    layout
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                    className="flex items-center gap-3 p-2 bg-slate-50 rounded-md"
-                >
-                    <span className={`font-bold text-lg w-8 text-center ${
-                        index === 0 ? 'text-amber-500' : index === 1 ? 'text-slate-500' : index === 2 ? 'text-amber-700' : 'text-slate-400'
-                    }`}>
-                        {index + 1}
-                    </span>
-                    <Avatar 
-                        avatar={student.avatar}
-                        className={`w-9 h-9 rounded-full ${student.teamColor} text-white font-bold text-base flex-shrink-0`}
-                    />
-                    <div className="flex-grow min-w-0">
-                        <p className="font-semibold text-slate-700 truncate">{student.name}</p>
-                    </div>
-                    <div className="flex items-center gap-1 font-bold text-amber-600">
-                        <TrophyIcon className="w-4 h-4" />
-                        <span>{period === 'total' ? student.score : (student as any).periodScore}</span>
-                    </div>
-                 </motion.li>
-            ))}
-        </AnimatePresence>
-      </ul>
-    </div>
-  );
+                {/* Nút Xem thêm / Thu gọn */}
+                {allStudents.length > 10 && (
+                    <button
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        className="w-full mt-4 py-2 text-sm font-semibold text-slate-500 hover:text-sky-600 hover:bg-slate-50 rounded-lg transition-colors border border-dashed border-slate-300"
+                    >
+                        {isExpanded ? 'Thu gọn danh sách' : `Xem thêm ${allStudents.length - 10} học sinh nữa...`}
+                    </button>
+                )}
+            </div>
+        </div>
+    );
 };
 
 export default IndividualLeaderboard;
